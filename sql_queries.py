@@ -10,7 +10,7 @@ time_table_drop = drop_table_base_query.format("time")
 # CREATE TABLES
 
 songplay_table_create = """
-CREATE TABLE songplays (songplay_id int PRIMARY KEY, start_time int, user_id int, level varchar, song_id int, artist_id int, session_id int, location varchar, user_agent varchar);
+CREATE TABLE songplays (songplay_id int PRIMARY KEY, start_time int, user_id int, level varchar, song_id varchar, artist_id varchar, session_id int, location varchar, user_agent varchar);
 """
 
 user_table_create = """
@@ -18,11 +18,11 @@ CREATE TABLE users (user_id int PRIMARY KEY, first_name varchar, last_name varch
 """
 
 song_table_create = """
-CREATE TABLE songs (song_id int PRIMARY KEY, title varchar, artist_id int, year int, duration numeric);
+CREATE TABLE songs (song_id varchar PRIMARY KEY, title varchar, artist_id varchar, year int, duration numeric);
 """
 
 artist_table_create = """
-CREATE TABLE artists (artist_id int PRIMARY KEY, name varchar, location varchar, latitude numeric, longitude numeric);
+CREATE TABLE artists (artist_id varchar PRIMARY KEY, name varchar, location varchar, latitude numeric, longitude numeric);
 """
 
 time_table_create = """
