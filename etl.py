@@ -1,5 +1,4 @@
 import glob
-import logging
 import os
 from typing import List
 
@@ -10,13 +9,12 @@ from psycopg2.errors import UniqueViolation
 
 from sql_queries import (
     artist_table_insert,
+    song_select,
     song_table_insert,
     songplay_table_insert,
     time_table_insert,
     user_table_insert,
 )
-
-log = logging.getLogger("ETL")
 
 # Necessary for df
 # pylint: disable=C0103
@@ -55,7 +53,7 @@ def process_song_file(cur, conn, filepath):
     try:
         cur.execute(song_table_insert, song_data)
     except UniqueViolation:
-        print(f"Skipped {song_data[0]} beacuse is already in db.")
+        print(f"[SONGS] Skipped {song_data[0]} beacuse is already in db.")
     conn.commit()
 
     # insert artist record
@@ -66,50 +64,71 @@ def process_song_file(cur, conn, filepath):
     try:
         cur.execute(artist_table_insert, artist_data)
     except UniqueViolation:
-        print(f"Skipped {artist_data[0]} beacuse is already in db.")
+        print(f"[ARTISTS] Skipped {artist_data[0]} beacuse is already in db.")
     conn.commit()
 
 
-# def process_log_file(cur, filepath):
-#     # open log file
-#     df =
+def process_log_file(cur, conn, filepath):
+    # open log file
+    df = pd.read_json(filepath, lines=True)
 
-#     # filter by NextSong action
-#     df =
+    # filter by NextSong action
+    df = df.loc[df["page"] == "NextSong"]
 
-#     # convert timestamp column to datetime
-#     t =
+    # convert timestamp column to datetime
+    t = pd.to_datetime(df["ts"], unit="ms")
+    df["ts"] = t
 
-#     # insert time data records
-#     time_data =
-#     column_labels =
-#     time_df =
+    # insert time data records
+    time_data = [t, t.dt.hour, t.dt.day, t.dt.isocalendar().week, t.dt.month, t.dt.year, t.dt.weekday]
+    column_labels = ["Timestamp", "Hour", "Day", "Week of the year", "Month", "Year", "Day of the week"]
+    time_df = pd.DataFrame(
+        list(zip(time_data[0], time_data[1], time_data[2], time_data[3], time_data[4], time_data[5], time_data[6])),
+        columns=column_labels,
+    )
 
-#     for i, row in time_df.iterrows():
-#         cur.execute(time_table_insert, list(row))
+    skipped = 0
+    for _, row in time_df.iterrows():
+        try:
+            cur.execute(time_table_insert, list(row))
+        except UniqueViolation:
+            skipped += 1
+        conn.commit()
 
-#     # load user table
-#     user_df =
+    if skipped > 0:
+        print(f"[TIMESTAMP] Skipped {skipped} items beacuse are already in db.")
 
-#     # insert user records
-#     for i, row in user_df.iterrows():
-#         cur.execute(user_table_insert, row)
+    # load user table
+    user_df = df[["userId", "firstName", "lastName", "gender", "level"]]
 
-#     # insert songplay records
-#     for index, row in df.iterrows():
+    # insert user records
+    skipped = 0
+    for _, row in user_df.iterrows():
+        try:
+            cur.execute(user_table_insert, row)
+        except UniqueViolation:
+            skipped += 1
+        conn.commit()
 
-#         # get songid and artistid from song and artist tables
-#         cur.execute(song_select, (row.song, row.artist, row.length))
-#         results = cur.fetchone()
+    if skipped > 0:
+        print(f"[USERS] Skipped {skipped} beacuse are already in db.")
 
-#         if results:
-#             songid, artistid = results
-#         else:
-#             songid, artistid = None, None
+    # insert songplay records
+    for _, row in df.iterrows():
 
-#         # insert songplay record
-#         songplay_data =
-#         cur.execute(songplay_table_insert, songplay_data)
+        # get songid and artistid from song and artist tables
+        cur.execute(song_select, (row.song, row.artist, row.length))
+        results = cur.fetchone()
+
+        if results:
+            songid, artistid = results
+        else:
+            songid, artistid = None, None
+
+        # insert songplay record
+        songplay_data = (row.ts, row.userId, row.level, songid, artistid, row.sessionId, row.location, row.userAgent)
+        cur.execute(songplay_table_insert, songplay_data)
+        conn.commit()
 
 
 def process_data(cur, conn, filepath, func):
@@ -134,8 +153,10 @@ def main():
     conn = psycopg2.connect("host=127.0.0.1 dbname=sparkifydb user=student password=student")
     cur = conn.cursor()
 
+    print("Processing songs and artists")
     process_data(cur, conn, filepath="data/song_data", func=process_song_file)
-    # process_data(cur, conn, filepath="data/log_data", func=process_log_file)
+    print("Processig users, time and songs play")
+    process_data(cur, conn, filepath="data/log_data", func=process_log_file)
 
     conn.close()
 
