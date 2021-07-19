@@ -10,7 +10,7 @@ time_table_drop = drop_table_base_query.format("time")
 # CREATE TABLES
 
 songplay_table_create = """
-CREATE TABLE songplays (songplay_id int PRIMARY KEY, start_time timestamp, user_id int, level varchar, song_id varchar, artist_id varchar, session_id int, location varchar, user_agent varchar);
+CREATE TABLE songplays (songplay_id BIGSERIAL PRIMARY KEY, start_time timestamp, user_id int, level varchar, song_id varchar, artist_id varchar, session_id int, location varchar, user_agent varchar);
 """
 
 user_table_create = """
@@ -32,6 +32,8 @@ CREATE TABLE time (start_time timestamp PRIMARY KEY, hour int, day int, week int
 # INSERT RECORDS
 
 songplay_table_insert = """
+INSERT INTO songplays (start_time, user_id, level, song_id, artist_id, session_id, location, user_agent)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
 """
 
 user_table_insert = """
@@ -58,6 +60,9 @@ VALUES (%s, %s, %s, %s, %s, %s, %s)
 # FIND SONGS
 
 song_select = """
+SELECT song_id, songs.artist_id
+FROM songs JOIN artists ON songs.artist_id = artists.artist_id
+WHERE title = %s AND name = %s AND duration = %s
 """
 
 # QUERY LISTS
