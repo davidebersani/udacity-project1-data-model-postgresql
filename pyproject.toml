@@ -1,0 +1,44 @@
+[tool.black]
+line-length = 120
+include = '\.pyi?$'
+exclude = '''
+
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+  | foo.py           # also separately exclude a file named foo.py in
+                     # the root of the project
+)
+'''
+
+# Disabling some pylint warnings
+# C0330 : false positives about indentation
+# C0326 : usage of spaces
+# C0114 : missing module doc strings
+# C0115 : missing class doc strings
+# C0116 : missing function/method doc strings
+[tool.pylint.messages_control]
+disable = "C0330, C0326, C0114, C0115, C0116, E0401"
+
+[tool.pylint.format]
+max-line-length = "120"
+max-locals="100"
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 120
