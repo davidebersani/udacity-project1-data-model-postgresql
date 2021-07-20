@@ -12,11 +12,11 @@ time_table_drop = drop_table_base_query.format("time")
 songplay_table_create = """
 CREATE TABLE IF NOT EXISTS songplays (
     songplay_id BIGSERIAL PRIMARY KEY,
-    start_time timestamp,
-    user_id int,
+    start_time timestamp NOT NULL,
+    user_id int NOT NULL,
     level varchar,
-    song_id varchar,
-    artist_id varchar,
+    song_id varchar NOT NULL,
+    artist_id varchar NOT NULL,
     session_id int,
     location varchar,
     user_agent varchar

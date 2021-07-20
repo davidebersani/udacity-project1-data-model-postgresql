@@ -1,6 +1,6 @@
 import glob
 import os
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 import pandas as pd
 import psycopg2
@@ -19,6 +19,45 @@ from sql_queries import (
 
 # Necessary for df
 # pylint: disable=C0103
+
+
+def prepare_tables_for_null(cur: cursor, conn: connection) -> Tuple[str, str]:
+    """
+    Prepare the songs and artists table inserting a row for Unknown song/artist.
+
+    Args:
+        cur (cursor): PostgreSQL cursor
+        conn (connection): PostgreSQL connection
+
+    Returns:
+        Tuple[str, str]: The id of the unknown song and artist
+    """
+    # Song
+    unknow_song = ["1", "[STUB] Unknown song", None, None, None]
+    done = False
+    while not done:
+        try:
+            cur.execute(song_table_insert, unknow_song)
+            done = True
+        except UniqueViolation:
+            unknow_song[0] = str(int(unknow_song[0]) + 1)
+        conn.commit()
+
+    print("Inserted row for Unknown song.")
+
+    # Artist
+    unknow_artist = ["1", "[STUB] Unknown artist", None, None, None]
+    done = False
+    while not done:
+        try:
+            cur.execute(artist_table_insert, unknow_artist)
+            done = True
+        except UniqueViolation:
+            unknow_artist[0] = str(int(unknow_artist[0]) + 1)
+        conn.commit()
+
+    print("Inserted row for Unknown artist.")
+    return (unknow_song[0], unknow_artist[0])
 
 
 def fix_numpy_types(row: List) -> List:
@@ -141,7 +180,7 @@ def process_log_file(cur: cursor, conn: connection, filepath: str):
         if results:
             songid, artistid = results
         else:
-            songid, artistid = None, None
+            songid, artistid = us_id, ua_id
 
         # insert songplay record
         songplay_data = (row.ts, row.userId, row.level, songid, artistid, row.sessionId, row.location, row.userAgent)
@@ -182,6 +221,9 @@ def main():
 
     print("Processing songs and artists")
     process_data(cur, conn, filepath="data/song_data", func=process_song_file)
+    global ua_id
+    global us_id
+    us_id, ua_id = prepare_tables_for_null(cur, conn)
     print("Processig users, time and songs play")
     process_data(cur, conn, filepath="data/log_data", func=process_log_file)
 
