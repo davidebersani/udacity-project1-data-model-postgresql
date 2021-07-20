@@ -98,11 +98,7 @@ def process_song_file(cur, conn, filepath):
     # insert song record
     song_data = df[["song_id", "title", "artist_id", "year", "duration"]].values.tolist()
     song_data = fix_numpy_types(song_data)
-    try:
-        cur.execute(song_table_insert, song_data)
-    except UniqueViolation:
-        # Can be also managed with conflit policy on SQL query
-        print(f"[SONGS] Skipped {song_data[0]} beacuse is already in db.")
+    cur.execute(song_table_insert, song_data)
     conn.commit()
 
     # insert artist record
@@ -110,10 +106,7 @@ def process_song_file(cur, conn, filepath):
         ["artist_id", "artist_name", "artist_location", "artist_latitude", "artist_longitude"]
     ].values.tolist()
     artist_data = fix_numpy_types(artist_data)
-    try:
-        cur.execute(artist_table_insert, artist_data)
-    except UniqueViolation:
-        print(f"[ARTISTS] Skipped {artist_data[0]} beacuse is already in db.")
+    cur.execute(artist_table_insert, artist_data)
     conn.commit()
 
 
@@ -144,16 +137,9 @@ def process_log_file(cur: cursor, conn: connection, filepath: str):
         columns=column_labels,
     )
 
-    skipped = 0
     for _, row in time_df.iterrows():
-        try:
-            cur.execute(time_table_insert, list(row))
-        except UniqueViolation:
-            skipped += 1
+        cur.execute(time_table_insert, list(row))
         conn.commit()
-
-    if skipped > 0:
-        print(f"[TIMESTAMP] Skipped {skipped} items beacuse are already in db.")
 
     # load user table
     user_df = df[["userId", "firstName", "lastName", "gender", "level"]]
@@ -161,14 +147,8 @@ def process_log_file(cur: cursor, conn: connection, filepath: str):
     # insert user records
     skipped = 0
     for _, row in user_df.iterrows():
-        try:
-            cur.execute(user_table_insert, row)
-        except UniqueViolation:
-            skipped += 1
+        cur.execute(user_table_insert, row)
         conn.commit()
-
-    if skipped > 0:
-        print(f"[USERS] Skipped {skipped} beacuse are already in db.")
 
     # insert songplay records
     for _, row in df.iterrows():
