@@ -1,11 +1,12 @@
 import glob
 import os
-from typing import List
+from typing import Callable, List
 
 import pandas as pd
 import psycopg2
 from numpy import float64, int64
 from psycopg2.errors import UniqueViolation
+from psycopg2.extensions import connection, cursor
 
 from sql_queries import (
     artist_table_insert,
@@ -20,12 +21,12 @@ from sql_queries import (
 # pylint: disable=C0103
 
 
-def fix_types(row: List) -> List:
+def fix_numpy_types(row: List) -> List:
     """
     Check types and convert numpy types to standard Python types.
 
     Args:
-        row (List): List to inspect
+        row (List): List to inspect. It must be a list without nested data structures.
 
     Returns:
         List: Fixed row
@@ -43,16 +44,25 @@ def fix_types(row: List) -> List:
 
 
 def process_song_file(cur, conn, filepath):
+    """
+    Process a song dataset's file.
+
+    Args:
+        cur (cursor): PostgreSQL cursor
+        conn (connection): PostgreSQL connection
+        filepath (str): path of the file
+    """
     # open song file
     df = pd.read_json(filepath, lines=True)
     df = df.iloc[0]
 
     # insert song record
     song_data = df[["song_id", "title", "artist_id", "year", "duration"]].values.tolist()
-    song_data = fix_types(song_data)
+    song_data = fix_numpy_types(song_data)
     try:
         cur.execute(song_table_insert, song_data)
     except UniqueViolation:
+        # Can be also managed with conflit policy on SQL query
         print(f"[SONGS] Skipped {song_data[0]} beacuse is already in db.")
     conn.commit()
 
@@ -60,7 +70,7 @@ def process_song_file(cur, conn, filepath):
     artist_data = df[
         ["artist_id", "artist_name", "artist_location", "artist_latitude", "artist_longitude"]
     ].values.tolist()
-    artist_data = fix_types(artist_data)
+    artist_data = fix_numpy_types(artist_data)
     try:
         cur.execute(artist_table_insert, artist_data)
     except UniqueViolation:
@@ -68,7 +78,15 @@ def process_song_file(cur, conn, filepath):
     conn.commit()
 
 
-def process_log_file(cur, conn, filepath):
+def process_log_file(cur: cursor, conn: connection, filepath: str):
+    """
+    Process a log dataset's file.
+
+    Args:
+        cur (cursor): PostgreSQL cursor
+        conn (connection): PostgreSQL connection
+        filepath (str): path of the file
+    """
     # open log file
     df = pd.read_json(filepath, lines=True)
 
@@ -131,7 +149,16 @@ def process_log_file(cur, conn, filepath):
         conn.commit()
 
 
-def process_data(cur, conn, filepath, func):
+def process_data(cur: cursor, conn: connection, filepath: str, func: Callable[[cursor, connection, str], None]):
+    """
+    Process data from a specific directory. For each file found, process it with the function passed as parameter.
+
+    Args:
+        cur (cursor): PostgreSQL cursor
+        conn (connection): PostgreSQL connection
+        filepath (str): filepath from where to start searching files
+        func (Calleble): function to process data
+    """
     # get all files matching extension from directory
     all_files = []
     for root, dirs, files in os.walk(filepath):
