@@ -10,23 +10,59 @@ time_table_drop = drop_table_base_query.format("time")
 # CREATE TABLES
 
 songplay_table_create = """
-CREATE TABLE songplays (songplay_id BIGSERIAL PRIMARY KEY, start_time timestamp, user_id int, level varchar, song_id varchar, artist_id varchar, session_id int, location varchar, user_agent varchar);
+CREATE TABLE IF NOT EXISTS songplays (
+    songplay_id BIGSERIAL PRIMARY KEY,
+    start_time timestamp NOT NULL,
+    user_id int NOT NULL,
+    level varchar,
+    song_id varchar NOT NULL,
+    artist_id varchar NOT NULL,
+    session_id int,
+    location varchar,
+    user_agent varchar
+    );
 """
 
 user_table_create = """
-CREATE TABLE users (user_id int PRIMARY KEY, first_name varchar, last_name varchar, gender char, level varchar);
+CREATE TABLE IF NOT EXISTS users (
+    user_id int PRIMARY KEY,
+    first_name varchar,
+    last_name varchar,
+    gender char,
+    level varchar
+    );
 """
 
 song_table_create = """
-CREATE TABLE songs (song_id varchar PRIMARY KEY, title varchar, artist_id varchar, year int, duration numeric);
+CREATE TABLE IF NOT EXISTS songs (
+    song_id varchar PRIMARY KEY,
+    title varchar,
+    artist_id varchar,
+    year int,
+    duration numeric
+    );
 """
 
 artist_table_create = """
-CREATE TABLE artists (artist_id varchar PRIMARY KEY, name varchar, location varchar, latitude numeric, longitude numeric);
+CREATE TABLE IF NOT EXISTS artists (
+    artist_id varchar PRIMARY KEY,
+    name varchar,
+    location varchar,
+    latitude numeric,
+    longitude numeric
+    );
 """
 
 time_table_create = """
-CREATE TABLE time (start_time timestamp PRIMARY KEY, hour int, day int, week int, month int, year int, weekday int);
+CREATE TABLE IF NOT EXISTS time (
+    start_time timestamp PRIMARY KEY,
+    hour int,
+    day int,
+    week int,
+    month int,
+    year int,
+    weekday int
+    );
 """
 
 # INSERT RECORDS
@@ -39,22 +75,27 @@ VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
 user_table_insert = """
 INSERT INTO users (user_id, first_name, last_name, gender, level)
 VALUES (%s, %s, %s, %s, %s)
+ON CONFLICT (user_id) DO UPDATE
+SET level = EXCLUDED.level
 """
 
 song_table_insert = """
 INSERT INTO songs (song_id, title, artist_id, year, duration)
 VALUES (%s, %s, %s, %s, %s)
+ON CONFLICT (song_id) DO NOTHING
 """
 
 artist_table_insert = """
 INSERT INTO artists (artist_id, name, location, latitude, longitude)
 VALUES (%s, %s, %s, %s, %s)
+ON CONFLICT (artist_id) DO NOTHING
 """
 
 
 time_table_insert = """
 INSERT INTO time (start_time, hour, day, week, month, year, weekday)
 VALUES (%s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (start_time) DO NOTHING
 """
 
 # FIND SONGS

@@ -1,6 +1,6 @@
 import glob
 import os
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 import pandas as pd
 import psycopg2
@@ -19,6 +19,45 @@ from sql_queries import (
 
 # Necessary for df
 # pylint: disable=C0103
+
+
+def prepare_tables_for_null(cur: cursor, conn: connection) -> Tuple[str, str]:
+    """
+    Prepare the songs and artists table inserting a row for Unknown song/artist.
+
+    Args:
+        cur (cursor): PostgreSQL cursor
+        conn (connection): PostgreSQL connection
+
+    Returns:
+        Tuple[str, str]: The id of the unknown song and artist
+    """
+    # Song
+    unknow_song = ["1", "[STUB] Unknown song", None, None, None]
+    done = False
+    while not done:
+        try:
+            cur.execute(song_table_insert, unknow_song)
+            done = True
+        except UniqueViolation:
+            unknow_song[0] = str(int(unknow_song[0]) + 1)
+        conn.commit()
+
+    print("Inserted row for Unknown song.")
+
+    # Artist
+    unknow_artist = ["1", "[STUB] Unknown artist", None, None, None]
+    done = False
+    while not done:
+        try:
+            cur.execute(artist_table_insert, unknow_artist)
+            done = True
+        except UniqueViolation:
+            unknow_artist[0] = str(int(unknow_artist[0]) + 1)
+        conn.commit()
+
+    print("Inserted row for Unknown artist.")
+    return (unknow_song[0], unknow_artist[0])
 
 
 def fix_numpy_types(row: List) -> List:
@@ -59,11 +98,7 @@ def process_song_file(cur, conn, filepath):
     # insert song record
     song_data = df[["song_id", "title", "artist_id", "year", "duration"]].values.tolist()
     song_data = fix_numpy_types(song_data)
-    try:
-        cur.execute(song_table_insert, song_data)
-    except UniqueViolation:
-        # Can be also managed with conflit policy on SQL query
-        print(f"[SONGS] Skipped {song_data[0]} beacuse is already in db.")
+    cur.execute(song_table_insert, song_data)
     conn.commit()
 
     # insert artist record
@@ -71,10 +106,7 @@ def process_song_file(cur, conn, filepath):
         ["artist_id", "artist_name", "artist_location", "artist_latitude", "artist_longitude"]
     ].values.tolist()
     artist_data = fix_numpy_types(artist_data)
-    try:
-        cur.execute(artist_table_insert, artist_data)
-    except UniqueViolation:
-        print(f"[ARTISTS] Skipped {artist_data[0]} beacuse is already in db.")
+    cur.execute(artist_table_insert, artist_data)
     conn.commit()
 
 
@@ -105,16 +137,9 @@ def process_log_file(cur: cursor, conn: connection, filepath: str):
         columns=column_labels,
     )
 
-    skipped = 0
     for _, row in time_df.iterrows():
-        try:
-            cur.execute(time_table_insert, list(row))
-        except UniqueViolation:
-            skipped += 1
+        cur.execute(time_table_insert, list(row))
         conn.commit()
-
-    if skipped > 0:
-        print(f"[TIMESTAMP] Skipped {skipped} items beacuse are already in db.")
 
     # load user table
     user_df = df[["userId", "firstName", "lastName", "gender", "level"]]
@@ -122,14 +147,8 @@ def process_log_file(cur: cursor, conn: connection, filepath: str):
     # insert user records
     skipped = 0
     for _, row in user_df.iterrows():
-        try:
-            cur.execute(user_table_insert, row)
-        except UniqueViolation:
-            skipped += 1
+        cur.execute(user_table_insert, row)
         conn.commit()
-
-    if skipped > 0:
-        print(f"[USERS] Skipped {skipped} beacuse are already in db.")
 
     # insert songplay records
     for _, row in df.iterrows():
@@ -141,7 +160,7 @@ def process_log_file(cur: cursor, conn: connection, filepath: str):
         if results:
             songid, artistid = results
         else:
-            songid, artistid = None, None
+            songid, artistid = us_id, ua_id
 
         # insert songplay record
         songplay_data = (row.ts, row.userId, row.level, songid, artistid, row.sessionId, row.location, row.userAgent)
@@ -182,6 +201,9 @@ def main():
 
     print("Processing songs and artists")
     process_data(cur, conn, filepath="data/song_data", func=process_song_file)
+    global ua_id
+    global us_id
+    us_id, ua_id = prepare_tables_for_null(cur, conn)
     print("Processig users, time and songs play")
     process_data(cur, conn, filepath="data/log_data", func=process_log_file)
 
